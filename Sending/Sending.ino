@@ -1,5 +1,6 @@
 #include <CapacitiveSensor.h>
 #include <SoftwareSerial.h>
+#include <XBee.h>
 
 /*
  * CapitiveSense Library Demo Sketch
@@ -19,11 +20,21 @@
  
 CapacitiveSensor   cs_4_2 = CapacitiveSensor(4, 2);
 
-SoftwareSerial xbee (2, 3); // (Rx, Tx)
+XBee xbee = XBee();
+
+SoftwareSerial xbeeSerial (6, 7); // (Rx, Tx)
+
+long reading;
+
+uint8_t byteArray[4];
+
+Tx16Request tx = Tx16Request(0x2, byteArray, 4);
 
 void setup() {
   Serial.begin(9600);
-  xbee.begin(9600);
+  xbeeSerial.begin(9600);
+  
+  xbee.setSerial(xbeeSerial);
   
   Serial.println("Starting...");
   
@@ -33,12 +44,19 @@ void setup() {
 
 void loop() {
   
-  long total1 =  cs_4_2.capacitiveSensor(30);
+  reading =  cs_4_2.capacitiveSensor(30);
   
-  Serial.print("total1 = ");
-  Serial.println(total1);
+  byteArray[0] = (int)((reading >> 24) & 0xFF);
+  byteArray[1] = (int)((reading >> 16) & 0xFF);
+  byteArray[2] = (int)((reading >> 8) & 0XFF);
+  byteArray[3] = (int)((reading & 0XFF));
   
-  xbee.write((unsigned char) total1);
+  tx = Tx16Request(0x2, byteArray, 4);
+  
+  xbee.send(tx);
+  
+  Serial.print("reading = ");
+  Serial.println(reading);
   
   // arbitrary delay to limit data to serial port 
   delay(10);

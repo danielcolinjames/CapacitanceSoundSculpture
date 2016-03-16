@@ -1,5 +1,6 @@
 #include <Firmata.h>
 #include <SoftwareSerial.h>
+#include <XBee.h>
 
 /*
  * CapitiveSense Library Demo Sketch
@@ -14,11 +15,20 @@
  + send capacitive sensing result via Firmata to your computer
  */
 
-SoftwareSerial xbee (2, 3); // (Rx, Tx)
+XBee xbee = XBee();
+
+SoftwareSerial xbeeSerial (6, 7); // (Rx, Tx)
+
+Rx16Response rx16 = Rx16Response();
+
+long incoming;
+uint8_t byteArray[4];
 
 void setup() {
   Serial.begin(9600);
-  xbee.begin(9600);
+  xbeeSerial.begin(9600);
+
+  xbee.setSerial(xbeeSerial);
   
   Serial.println("Starting...");
   
@@ -26,15 +36,37 @@ void setup() {
 }
 
 void loop() {
-
-  unsigned char incoming = xbee.read();
   
-  long total1 = (long)incoming;
+  xbee.readPacket();
+  
+  if (xbee.getResponse().isAvailable()) {
+    // got something
+    
+    if (xbee.getResponse().getApiId() == RX_16_RESPONSE) {
+      xbee.getResponse().getRx16Response(rx16);
+      
+      byteArray[0] = rx16.getData(0);
+      byteArray[1] = rx16.getData(1);
+      byteArray[2] = rx16.getData(2);
+      byteArray[3] = rx16.getData(3);
+      
+      incoming = (
+        ((uint32_t)byteArray[0] << 24) +
+        ((uint32_t)byteArray[1] << 16) +
+        ((uint32_t)byteArray[2] << 8) + 
+        ((uint32_t)byteArray[3] )
+      );
+      
+    }
+  }
+  else if (xbee.getResponse().isError()) {
+    
+  }
+  else {
+    
+  }
   
   // here I am sending the result as analog value. 
   // the first number normaly indicates the pin number. it can go up to 15
-  Firmata.sendAnalog(8, total1);
-
-  // arbitrary delay to limit data to serial port 
-  delay(10);
+  Firmata.sendAnalog(8, incoming);
 }
